@@ -1,8 +1,70 @@
 // ignore_for_file: prefer_interpolation_to_compose_strings, non_constant_identifier_names
 
+import 'dart:async';
 import 'package:http/http.dart' as http;
 
+/// Timeout default untuk semua API calls (15 detik)
+const Duration _apiTimeout = Duration(seconds: 15);
+
 class DataService {
+   // ==================== DRIVERS COLLECTION ====================
+   
+   /// Insert driver baru
+   Future insertDriver(String appid, String driver_id, String nama_driver, String no_wa, String foto_profil, String status, String createdat) async {
+      String uri = 'https://api.247go.app/v5/insert/';
+
+      try {
+         final response = await http.post(Uri.parse(uri), body: {
+            'token': '690de4f3fcee2015d33ec864',
+            'project': 'sewa_ps',
+            'collection': 'drivers',
+            'appid': appid,
+            'driver_id': driver_id,
+            'nama_driver': nama_driver,
+            'no_wa': no_wa,
+            'foto_profil': foto_profil,
+            'status': status,
+            'createdat': createdat
+         });
+
+         if (response.statusCode == 200) {
+            return response.body;
+         } else {
+            return '[]';
+         }
+      } catch (e) {
+         return '[]';
+      }
+   }
+
+   /// Update field reservasi (untuk multiple fields)
+   Future updateReservasiField(String reservasi_id, String field, String value, String token, String project, String appid) async {
+      String uri = 'https://api.247go.app/v5/update_where/';
+
+      try {
+         final response = await http.post(Uri.parse(uri), body: {
+            'where_field': 'reservasi_id',
+            'where_value': reservasi_id,
+            'update_field': field,
+            'update_value': value,
+            'token': token,
+            'project': project,
+            'collection': 'reservasi',
+            'appid': appid
+         });
+
+         if (response.statusCode == 200) {
+            return true;
+         } else {
+            return false;
+         }
+      } catch (e) {
+         return false;
+      }
+   }
+
+   // ==================== USERS COLLECTION ====================
+
    Future insertUsers(String appid, String user_id, String name, String email, String password, String role, String createdat) async {
       String uri = 'https://api.247go.app/v5/insert/';
 
@@ -63,7 +125,7 @@ class DataService {
       }
    }
 
-   Future insertReservasi(String appid, String reservasi_id, String user_id, String ps_id, String jumlah_hari, String jumlah_unit, String tgl_mulai, String tgl_selesai, String alamat, String no_wa, String foto_ktp, String total_harga, String status, String createdat) async {
+   Future insertReservasi(String appid, String reservasi_id, String user_id, String ps_id, String jumlah_hari, String jumlah_unit, String tgl_mulai, String tgl_selesai, String alamat, String no_wa, String foto_ktp, String total_harga, String status, String createdat, {String kordinat = '', String bukti_terpasang = ''}) async {
       String uri = 'https://api.247go.app/v5/insert/';
 
       try {
@@ -84,7 +146,9 @@ class DataService {
             'foto_ktp': foto_ktp,
             'total_harga': total_harga,
             'status': status,
-            'createdat': createdat
+            'createdat': createdat,
+            'kordinat': kordinat,
+            'bukti_terpasang': bukti_terpasang
          });
 
          if (response.statusCode == 200) {
@@ -130,6 +194,66 @@ class DataService {
       }
    }
 
+   /// Insert payment dengan format Midtrans
+   Future insertPaymentMidtrans(
+      String appid,
+      String payment_id,
+      String order_id,
+      String transaction_id,
+      String reservasi_id,
+      String user_id,
+      String total_pembayaran,
+      String metode_pembayaran,
+      String payment_type,
+      String status,
+      String snap_token,
+      String snap_redirect_url,
+      String va_numbers,
+      String payment_code,
+      String settlement_time,
+      String expiry_time,
+      String createdat,
+      String updatedat,
+   ) async {
+      String uri = 'https://api.247go.app/v5/insert/';
+
+      try {
+         final response = await http.post(Uri.parse(uri), body: {
+            'token': '690de4f3fcee2015d33ec864',
+            'project': 'sewa_ps',
+            'collection': 'payments',
+            'appid': appid,
+            'payment_id': payment_id,
+            'order_id': order_id,
+            'transaction_id': transaction_id,
+            'reservasi_id': reservasi_id,
+            'user_id': user_id,
+            'total_pembayaran': total_pembayaran,
+            'metode_pembayaran': metode_pembayaran,
+            'payment_type': payment_type,
+            'status': status,
+            'snap_token': snap_token,
+            'snap_redirect_url': snap_redirect_url,
+            'va_numbers': va_numbers,
+            'payment_code': payment_code,
+            'settlement_time': settlement_time,
+            'expiry_time': expiry_time,
+            'createdat': createdat,
+            'updatedat': updatedat,
+         }).timeout(_apiTimeout);
+
+         if (response.statusCode == 200) {
+            return response.body;
+         } else {
+            return '[]';
+         }
+      } on TimeoutException {
+         return '[]';
+      } catch (e) {
+         return '[]';
+      }
+   }
+
    Future insertAdminLogs(String appid, ) async {
       String uri = 'https://api.247go.app/v5/insert/';
 
@@ -157,7 +281,7 @@ class DataService {
       String uri = 'https://api.247go.app/v5/select_all/token/' + token + '/project/' + project + '/collection/' + collection + '/appid/' + appid;
 
       try {
-         final response = await http.get(Uri.parse(uri));
+         final response = await http.get(Uri.parse(uri)).timeout(_apiTimeout);
 
          if (response.statusCode == 200) {
             return response.body;
@@ -165,6 +289,8 @@ class DataService {
             // Return an empty array
             return '[]';
          }
+      } on TimeoutException {
+         return '[]';
       } catch (e) {
          // Print error here
          return '[]';
@@ -175,7 +301,7 @@ class DataService {
       String uri = 'https://api.247go.app/v5/select_id/token/' + token + '/project/' + project + '/collection/' + collection + '/appid/' + appid + '/id/' + id;
 
       try {
-         final response = await http.get(Uri.parse(uri));
+         final response = await http.get(Uri.parse(uri)).timeout(_apiTimeout);
 
          if (response.statusCode == 200) {
             return response.body;
@@ -183,6 +309,8 @@ class DataService {
             // Return an empty array
             return '[]';
          }
+      } on TimeoutException {
+         return '[]';
       } catch (e) {
          // Print error here
          return '[]';
@@ -193,7 +321,7 @@ class DataService {
       String uri = 'https://api.247go.app/v5/select_where/token/' + token + '/project/' + project + '/collection/' + collection + '/appid/' + appid + '/where_field/' + where_field + '/where_value/' + where_value;
 
       try {
-         final response = await http.get(Uri.parse(uri));
+         final response = await http.get(Uri.parse(uri)).timeout(_apiTimeout);
 
          if (response.statusCode == 200) {
             return response.body;
@@ -201,6 +329,8 @@ class DataService {
             // Return an empty array
             return '[]';
          }
+      } on TimeoutException {
+         return '[]';
       } catch (e) {
          // Print error here
          return '[]';
@@ -211,7 +341,7 @@ class DataService {
       String uri = 'https://api.247go.app/v5/select_or_where/token/' + token + '/project/' + project + '/collection/' + collection + '/appid/' + appid + '/or_where_field/' + or_where_field + '/or_where_value/' + or_where_value;
 
       try {
-         final response = await http.get(Uri.parse(uri));
+         final response = await http.get(Uri.parse(uri)).timeout(_apiTimeout);
 
          if (response.statusCode == 200) {
             return response.body;
@@ -219,6 +349,8 @@ class DataService {
             // Return an empty array
             return '[]';
          }
+      } on TimeoutException {
+         return '[]';
       } catch (e) {
          // Print error here
          return '[]';
@@ -229,7 +361,7 @@ class DataService {
       String uri = 'https://api.247go.app/v5/select_where_like/token/' + token + '/project/' + project + '/collection/' + collection + '/appid/' + appid + '/wlike_field/' + wlike_field + '/wlike_value/' + wlike_value;
 
       try {
-         final response = await http.get(Uri.parse(uri));
+         final response = await http.get(Uri.parse(uri)).timeout(_apiTimeout);
 
          if (response.statusCode == 200) {
             return response.body;

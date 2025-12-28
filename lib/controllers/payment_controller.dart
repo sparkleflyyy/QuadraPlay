@@ -22,12 +22,107 @@ class PaymentController extends ChangeNotifier {
     }
     return _payments.where((p) => p.status == _filterStatus).toList();
   }
+
   PaymentModel? get selectedPayment => _selectedPayment;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   String? get filterStatus => _filterStatus;
 
-  /// Create payment baru
+  /// Create payment dengan Midtrans
+  Future<Map<String, dynamic>?> createPaymentWithMidtrans({
+    required String reservasiId,
+    required String userId,
+    required int totalPembayaran,
+    required String customerName,
+    required String customerEmail,
+    required String customerPhone,
+    required String itemName,
+    int itemQuantity = 1,
+  }) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final result = await _paymentService.createPaymentWithMidtrans(
+        reservasiId: reservasiId,
+        userId: userId,
+        totalPembayaran: totalPembayaran,
+        customerName: customerName,
+        customerEmail: customerEmail,
+        customerPhone: customerPhone,
+        itemName: itemName,
+        itemQuantity: itemQuantity,
+      );
+
+      if (result['success'] == true) {
+        await loadAllPayments(); // Refresh list
+        return result;
+      } else {
+        _errorMessage = result['message'] ?? 'Gagal membuat pembayaran';
+        notifyListeners();
+        return result;
+      }
+    } catch (e) {
+      _errorMessage = 'Terjadi kesalahan: $e';
+      notifyListeners();
+      return {'success': false, 'message': _errorMessage};
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Refresh payment status dari Midtrans
+  Future<bool> refreshPaymentStatus(String orderId) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final result = await _paymentService.refreshPaymentStatus(orderId);
+
+      if (result['success'] == true) {
+        await loadAllPayments(); // Refresh list
+        return true;
+      } else {
+        _errorMessage = result['message'];
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = 'Terjadi kesalahan: $e';
+      notifyListeners();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Get payment by Order ID
+  Future<PaymentModel?> getPaymentByOrderId(String orderId) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final result = await _paymentService.getPaymentByOrderId(orderId);
+
+      if (result['success'] == true) {
+        _selectedPayment = result['payment'];
+        notifyListeners();
+        return _selectedPayment;
+      } else {
+        _errorMessage = result['message'];
+        notifyListeners();
+        return null;
+      }
+    } catch (e) {
+      _errorMessage = 'Terjadi kesalahan: $e';
+      notifyListeners();
+      return null;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Create payment baru (legacy - manual upload)
   Future<bool> createPayment({
     required String reservasiId,
     required String userId,
@@ -272,5 +367,27 @@ class PaymentController extends ChangeNotifier {
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  /// Sync payment status dari Midtrans
+  Future<Map<String, dynamic>> syncPaymentStatus(String orderId) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final result = await _paymentService.syncPaymentStatusFromMidtrans(orderId);
+      
+      if (result['success'] == true) {
+        // Refresh payment list
+        await loadPaymentsByUser(_selectedPayment?.userId ?? '');
+      }
+
+      return result;
+    } catch (e) {
+      _errorMessage = e.toString();
+      return {'success': false, 'message': e.toString()};
+    } finally {
+      _setLoading(false);
+    }
   }
 }

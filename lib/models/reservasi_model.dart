@@ -12,9 +12,22 @@ class ReservasiModel {
   final String noWA;
   final String ktpUrl;
   final int totalHarga;
-  final String
-  status; // "pending" | "approved" | "rejected" | "active" | "finished"
+  final String status; // "pending" | "paid" | "approved" | "shipping" | "installed" | "active" | "completed"
   final DateTime createdAt;
+  
+  // New fields for enhanced features
+  final String? driverId;           // ID driver yang mengantar
+  final String? driverName;         // Nama driver
+  final String? driverPhone;        // No WA driver
+  final String? driverPhoto;        // Foto profil driver
+  final String? fotoBuktiPasang;    // Foto bukti PS sudah terpasang (upload oleh user)
+  final String? fotoUserPenerima;   // Foto user penerima PS
+  final DateTime? waktuSewaMulai;   // Waktu sewa dimulai (saat admin klik Start)
+  final DateTime? waktuSewaBerakhir;// Waktu sewa berakhir (waktuSewaMulai + jumlahHari)
+  final double? latitude;           // Latitude lokasi pengiriman
+  final double? longitude;          // Longitude lokasi pengiriman
+  final String? kordinat;           // Koordinat dalam format "lat,lng"
+  final String? buktiTerpasang;     // Foto bukti unit sudah terpasang (upload oleh user)
 
   ReservasiModel({
     this.id,
@@ -31,6 +44,18 @@ class ReservasiModel {
     required this.totalHarga,
     required this.status,
     required this.createdAt,
+    this.driverId,
+    this.driverName,
+    this.driverPhone,
+    this.driverPhoto,
+    this.fotoBuktiPasang,
+    this.fotoUserPenerima,
+    this.waktuSewaMulai,
+    this.waktuSewaBerakhir,
+    this.latitude,
+    this.longitude,
+    this.kordinat,
+    this.buktiTerpasang,
   });
 
   /// Factory constructor untuk membuat ReservasiModel dari JSON
@@ -50,6 +75,19 @@ class ReservasiModel {
       totalHarga: _parseToInt(json['total_harga']),
       status: json['status'] as String? ?? 'pending',
       createdAt: _parseDateTime(json['createdat']),
+      // New fields
+      driverId: json['driver_id'] as String?,
+      driverName: json['driver_name'] as String?,
+      driverPhone: json['driver_phone'] as String?,
+      driverPhoto: json['driver_photo'] as String?,
+      fotoBuktiPasang: json['foto_bukti_pasang'] as String?,
+      fotoUserPenerima: json['foto_user_penerima'] as String?,
+      waktuSewaMulai: _parseNullableDateTime(json['waktu_sewa_mulai']),
+      waktuSewaBerakhir: _parseNullableDateTime(json['waktu_sewa_berakhir']),
+      latitude: _parseToDouble(json['latitude']),
+      longitude: _parseToDouble(json['longitude']),
+      kordinat: json['kordinat'] as String?,
+      buktiTerpasang: json['bukti_terpasang'] as String?,
     );
   }
 
@@ -62,12 +100,29 @@ class ReservasiModel {
     return 0;
   }
 
+  /// Helper untuk parsing ke double
+  static double? _parseToDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
   /// Helper untuk parsing DateTime
   static DateTime _parseDateTime(dynamic value) {
     if (value == null) return DateTime.now();
     if (value is DateTime) return value;
     if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
     return DateTime.now();
+  }
+
+  /// Helper untuk parsing nullable DateTime
+  static DateTime? _parseNullableDateTime(dynamic value) {
+    if (value == null || value == '') return null;
+    if (value is DateTime) return value;
+    if (value is String) return DateTime.tryParse(value);
+    return null;
   }
 
   /// Konversi ReservasiModel ke JSON untuk disimpan
@@ -86,6 +141,18 @@ class ReservasiModel {
       'total_harga': totalHarga.toString(),
       'status': status,
       'createdat': createdAt.toIso8601String(),
+      'driver_id': driverId ?? '',
+      'driver_name': driverName ?? '',
+      'driver_phone': driverPhone ?? '',
+      'driver_photo': driverPhoto ?? '',
+      'foto_bukti_pasang': fotoBuktiPasang ?? '',
+      'foto_user_penerima': fotoUserPenerima ?? '',
+      'waktu_sewa_mulai': waktuSewaMulai?.toIso8601String() ?? '',
+      'waktu_sewa_berakhir': waktuSewaBerakhir?.toIso8601String() ?? '',
+      'latitude': latitude?.toString() ?? '',
+      'longitude': longitude?.toString() ?? '',
+      'kordinat': kordinat ?? '',
+      'bukti_terpasang': buktiTerpasang ?? '',
     };
   }
 
@@ -105,6 +172,18 @@ class ReservasiModel {
     int? totalHarga,
     String? status,
     DateTime? createdAt,
+    String? driverId,
+    String? driverName,
+    String? driverPhone,
+    String? driverPhoto,
+    String? fotoBuktiPasang,
+    String? fotoUserPenerima,
+    DateTime? waktuSewaMulai,
+    DateTime? waktuSewaBerakhir,
+    double? latitude,
+    double? longitude,
+    String? kordinat,
+    String? buktiTerpasang,
   }) {
     return ReservasiModel(
       id: id ?? this.id,
@@ -121,7 +200,52 @@ class ReservasiModel {
       totalHarga: totalHarga ?? this.totalHarga,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
+      driverId: driverId ?? this.driverId,
+      driverName: driverName ?? this.driverName,
+      driverPhone: driverPhone ?? this.driverPhone,
+      driverPhoto: driverPhoto ?? this.driverPhoto,
+      fotoBuktiPasang: fotoBuktiPasang ?? this.fotoBuktiPasang,
+      fotoUserPenerima: fotoUserPenerima ?? this.fotoUserPenerima,
+      waktuSewaMulai: waktuSewaMulai ?? this.waktuSewaMulai,
+      waktuSewaBerakhir: waktuSewaBerakhir ?? this.waktuSewaBerakhir,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      kordinat: kordinat ?? this.kordinat,
+      buktiTerpasang: buktiTerpasang ?? this.buktiTerpasang,
     );
+  }
+
+  /// Hitung sisa waktu sewa dalam Duration
+  Duration? getSisaWaktu() {
+    if (waktuSewaBerakhir == null) return null;
+    final now = DateTime.now();
+    if (now.isAfter(waktuSewaBerakhir!)) return Duration.zero;
+    return waktuSewaBerakhir!.difference(now);
+  }
+
+  /// Cek apakah sewa sudah berakhir
+  bool get isSewaExpired {
+    if (waktuSewaBerakhir == null) return false;
+    return DateTime.now().isAfter(waktuSewaBerakhir!);
+  }
+
+  /// Format sisa waktu ke string
+  String getSisaWaktuFormatted() {
+    final sisa = getSisaWaktu();
+    if (sisa == null) return '-';
+    if (sisa == Duration.zero) return 'Waktu habis';
+    
+    final days = sisa.inDays;
+    final hours = sisa.inHours % 24;
+    final minutes = sisa.inMinutes % 60;
+    
+    if (days > 0) {
+      return '$days hari $hours jam';
+    } else if (hours > 0) {
+      return '$hours jam $minutes menit';
+    } else {
+      return '$minutes menit';
+    }
   }
 
   /// Validasi status
@@ -129,9 +253,12 @@ class ReservasiModel {
     return [
       'belum_bayar',
       'pending',
+      'paid',
       'approved',
-      'rejected',
+      'shipping',
+      'installed',
       'active',
+      'rejected',
       'finished',
       'completed',
       'cancelled',
@@ -155,14 +282,73 @@ class ReservasiModel {
 
 /// Status constants untuk reservasi
 class ReservasiStatus {
-  static const String belumBayar =
-      'belum_bayar'; // Reservasi dibuat, belum bayar
-  static const String pending =
-      'pending'; // Sudah bayar, menunggu approval admin
-  static const String approved = 'approved';
+  static const String belumBayar = 'belum_bayar'; // Reservasi dibuat, belum bayar
+  static const String pending = 'pending'; // Sudah bayar, menunggu approval admin
+  static const String paid = 'paid'; // Sudah bayar, menunggu konfirmasi admin
+  static const String approved = 'approved'; // Admin setuju, menyiapkan barang
+  static const String shipping = 'shipping'; // Barang dibawa kurir
+  static const String installed = 'installed'; // Barang sampai & dipasang
+  static const String active = 'active'; // Waktu sewa berjalan/Timer on
   static const String rejected = 'rejected';
-  static const String active = 'active';
   static const String finished = 'finished';
   static const String completed = 'completed';
   static const String cancelled = 'cancelled';
+
+  /// Get display text for status
+  static String getDisplayText(String status) {
+    switch (status) {
+      case belumBayar:
+        return 'Belum Bayar';
+      case pending:
+        return 'Menunggu Konfirmasi';
+      case paid:
+        return 'Sudah Bayar';
+      case approved:
+        return 'Disetujui';
+      case shipping:
+        return 'Sedang Dikirim';
+      case installed:
+        return 'Terpasang';
+      case active:
+        return 'Aktif';
+      case rejected:
+        return 'Ditolak';
+      case finished:
+      case completed:
+        return 'Selesai';
+      case cancelled:
+        return 'Dibatalkan';
+      default:
+        return status;
+    }
+  }
+
+  /// Get user-friendly description
+  static String getDescription(String status) {
+    switch (status) {
+      case belumBayar:
+        return 'Silakan lakukan pembayaran untuk melanjutkan';
+      case pending:
+        return 'Menunggu konfirmasi pembayaran dari admin';
+      case paid:
+        return 'Pembayaran diterima, menunggu persetujuan admin';
+      case approved:
+        return 'Reservasi disetujui, unit sedang disiapkan';
+      case shipping:
+        return 'Unit sedang dalam perjalanan ke lokasi Anda';
+      case installed:
+        return 'Unit sudah terpasang, menunggu aktivasi sewa';
+      case active:
+        return 'Waktu sewa sedang berjalan';
+      case rejected:
+        return 'Reservasi ditolak';
+      case finished:
+      case completed:
+        return 'Sewa telah selesai';
+      case cancelled:
+        return 'Reservasi dibatalkan';
+      default:
+        return '';
+    }
+  }
 }

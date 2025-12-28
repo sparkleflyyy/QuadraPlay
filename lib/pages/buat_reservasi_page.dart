@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 import '../controllers/reservasi_controller.dart';
 import '../models/ps_item_model.dart';
 import '../models/reservasi_model.dart';
 import 'list_ps_page.dart';
-import 'upload_pembayaran_page.dart';
+import 'payment_page.dart';
 
 class BuatReservasiPage extends StatefulWidget {
   final PSItemModel psItem;
@@ -34,7 +37,13 @@ class _BuatReservasiPageState extends State<BuatReservasiPage> {
   int _jumlahUnit = 1;
   XFile? _ktpFile;
   Uint8List? _ktpBytes;
+  Uint8List? _fotoPenerimaBytes;
   final ImagePicker _picker = ImagePicker();
+  
+  // Location data
+  double? _latitude;
+  double? _longitude;
+  bool _loadingLocation = false;
 
   int get _totalHarga => ReservasiModel.calculateTotalHarga(
     widget.psItem.hargaPerHari,
@@ -66,14 +75,115 @@ class _BuatReservasiPageState extends State<BuatReservasiPage> {
     }
   }
 
+  Future<void> _pickFotoPenerima() async {
+    final XFile? image = await _picker.pickImage(
+      source: ImageSource.camera,
+      maxWidth: 800,
+      maxHeight: 800,
+      imageQuality: 80,
+    );
+
+    if (image != null) {
+      final bytes = await image.readAsBytes();
+      setState(() {
+        _fotoPenerimaBytes = bytes;
+      });
+    }
+  }
+
+  Future<void> _getCurrentLocation() async {
+    setState(() => _loadingLocation = true);
+    
+    try {
+      // Check permission
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          _showErrorSnackBar('Izin lokasi ditolak');
+          setState(() => _loadingLocation = false);
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        _showErrorSnackBar('Izin lokasi diblokir permanen. Aktifkan di pengaturan.');
+        setState(() => _loadingLocation = false);
+        return;
+      }
+
+      // Get current position
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      setState(() {
+        _latitude = position.latitude;
+        _longitude = position.longitude;
+      });
+
+      // Get address from coordinates
+      try {
+        List<Placemark> placemarks = await placemarkFromCoordinates(
+          position.latitude,
+          position.longitude,
+        );
+        if (placemarks.isNotEmpty) {
+          Placemark place = placemarks.first;
+          String address = [
+            place.street,
+            place.subLocality,
+            place.locality,
+            place.subAdministrativeArea,
+            place.administrativeArea,
+            place.postalCode,
+          ].where((e) => e != null && e.isNotEmpty).join(', ');
+          
+          _alamatController.text = address;
+        }
+      } catch (e) {
+        print('Geocoding error: $e');
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Lokasi berhasil diambil'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+    } catch (e) {
+      _showErrorSnackBar('Gagal mengambil lokasi: $e');
+    }
+    
+    setState(() => _loadingLocation = false);
+  }
+
+  Future<void> _openMaps() async {
+    if (_latitude == null || _longitude == null) {
+      if (_alamatController.text.isNotEmpty) {
+        final encodedAddress = Uri.encodeComponent(_alamatController.text);
+        final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$encodedAddress');
+        if (await canLaunchUrl(url)) {
+          await launchUrl(url, mode: LaunchMode.externalApplication);
+        }
+      }
+      return;
+    }
+    
+    final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$_latitude,$_longitude');
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    }
+  }
+
   Future<void> _selectDate(bool isStartDate) async {
     final DateTime now = DateTime.now();
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: isStartDate
-          ? (_tglMulai ?? now)
-          : (_tglSelesai ?? now.add(const Duration(days: 1))),
-      firstDate: isStartDate ? now : (_tglMulai ?? now),
+      initialDate: _tglMulai ?? now,
+      firstDate: now,
       lastDate: now.add(const Duration(days: 365)),
       builder: (context, child) {
         return Theme(
@@ -92,39 +202,51 @@ class _BuatReservasiPageState extends State<BuatReservasiPage> {
 
     if (picked != null) {
       setState(() {
-        if (isStartDate) {
-          _tglMulai = picked;
-          if (_tglSelesai != null && _tglSelesai!.isBefore(picked)) {
-            _tglSelesai = null;
-          }
-        } else {
-          _tglSelesai = picked;
-        }
-
-        if (_tglMulai != null && _tglSelesai != null) {
-          _jumlahHari = _tglSelesai!.difference(_tglMulai!).inDays + 1;
-          if (_jumlahHari < 1) _jumlahHari = 1;
-        }
+        _tglMulai = picked;
+        // Tanggal selesai dihitung otomatis dari durasi
+        _tglSelesai = picked.add(Duration(days: _jumlahHari));
       });
     }
+  }
+
+  void _updateDurasi(int durasi) {
+    if (durasi < 1) durasi = 1;
+    if (durasi > 7) durasi = 7; // Maksimal 7 hari
+    
+    setState(() {
+      _jumlahHari = durasi;
+      // Update tanggal selesai jika tanggal mulai sudah dipilih
+      if (_tglMulai != null) {
+        _tglSelesai = _tglMulai!.add(Duration(days: _jumlahHari));
+      }
+    });
   }
 
   Future<void> _submitReservasi() async {
     if (!_formKey.currentState!.validate()) return;
 
-    if (_tglMulai == null || _tglSelesai == null) {
-      _showErrorSnackBar('Pilih tanggal mulai dan selesai');
+    if (_tglMulai == null) {
+      _showErrorSnackBar('Pilih tanggal mulai');
       return;
     }
+
+    // Hitung tanggal selesai dari durasi
+    _tglSelesai = _tglMulai!.add(Duration(days: _jumlahHari));
 
     if (_ktpFile == null) {
       _showErrorSnackBar('Upload foto KTP');
       return;
     }
 
+    // Prepare koordinat string
+    String? kordinatStr;
+    if (_latitude != null && _longitude != null) {
+      kordinatStr = '$_latitude,$_longitude';
+    }
+
     final controller = context.read<ReservasiController>();
 
-    final success = await controller.createReservasi(
+    final success = await controller.createReservasiWithKordinat(
       userId: widget.userId,
       psId: widget.psItem.psId,
       jumlahHari: _jumlahHari,
@@ -134,6 +256,7 @@ class _BuatReservasiPageState extends State<BuatReservasiPage> {
       alamat: _alamatController.text.trim(),
       noWA: _noWAController.text.trim(),
       ktpFile: _ktpFile!,
+      kordinat: kordinatStr,
     );
 
     if (success && mounted) {
@@ -248,10 +371,12 @@ class _BuatReservasiPageState extends State<BuatReservasiPage> {
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => UploadPembayaranPage(
+                        builder: (_) => PaymentPage(
                           reservasiId: reservasiId,
                           userId: widget.userId,
                           totalHarga: _totalHarga,
+                          itemName: 'Rental ${widget.psItem.nama}',
+                          itemQuantity: _jumlahUnit,
                         ),
                       ),
                     );
@@ -402,25 +527,83 @@ class _BuatReservasiPageState extends State<BuatReservasiPage> {
 
                   const SizedBox(height: 24),
 
-                  // Section Title
-                  _buildSectionTitle(Icons.calendar_today, 'Pilih Tanggal'),
+                  // Section Title - Tanggal Mulai
+                  _buildSectionTitle(Icons.calendar_today, 'Tanggal Mulai'),
 
                   const SizedBox(height: 12),
 
-                  // Date Selection
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildDatePicker('Mulai', _tglMulai, true),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildDatePicker('Selesai', _tglSelesai, false),
-                      ),
-                    ],
+                  // Date Selection - Hanya Tanggal Mulai
+                  _buildDatePicker('Pilih Tanggal Mulai', _tglMulai, true),
+
+                  const SizedBox(height: 24),
+
+                  // Section Title - Durasi Penyewaan
+                  _buildSectionTitle(Icons.timer, 'Durasi Penyewaan (Maksimal 7 Hari)'),
+
+                  const SizedBox(height: 12),
+
+                  // Duration Selector
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _buildQuantityButton(
+                              Icons.remove,
+                              _jumlahHari > 1,
+                              () => _updateDurasi(_jumlahHari - 1),
+                            ),
+                            Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 24),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 32,
+                                vertical: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF5F6FA),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '$_jumlahHari',
+                                style: const TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            _buildQuantityButton(
+                              Icons.add,
+                              _jumlahHari < 7, // Maksimal 7 hari
+                              () => _updateDurasi(_jumlahHari + 1),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'hari',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
 
-                  if (_tglMulai != null && _tglSelesai != null)
+                  // Info Tanggal Selesai
+                  if (_tglMulai != null)
                     Container(
                       margin: const EdgeInsets.only(top: 12),
                       padding: const EdgeInsets.all(12),
@@ -432,13 +615,13 @@ class _BuatReservasiPageState extends State<BuatReservasiPage> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Icon(
-                            Icons.timer,
+                            Icons.event_available,
                             color: Color(0xFF667eea),
                             size: 18,
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Durasi: $_jumlahHari hari',
+                            'Tanggal Selesai: ${DateFormat('dd MMMM yyyy').format(_tglMulai!.add(Duration(days: _jumlahHari)))}',
                             style: const TextStyle(
                               color: Color(0xFF667eea),
                               fontWeight: FontWeight.bold,
@@ -518,6 +701,83 @@ class _BuatReservasiPageState extends State<BuatReservasiPage> {
                   _buildSectionTitle(Icons.location_on, 'Alamat & Kontak'),
 
                   const SizedBox(height: 12),
+
+                  // Location Picker Buttons
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _loadingLocation ? null : _getCurrentLocation,
+                            icon: _loadingLocation
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.my_location, size: 18),
+                            label: const Text('Lokasi Saya'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              side: const BorderSide(color: Color(0xFF667eea)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _openMaps,
+                            icon: const Icon(Icons.map, size: 18),
+                            label: const Text('Buka Maps'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              side: const BorderSide(color: Color(0xFF11998e)),
+                              foregroundColor: const Color(0xFF11998e),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  if (_latitude != null && _longitude != null)
+                    Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle, color: Colors.green, size: 16),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Koordinat: ${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)}',
+                            style: const TextStyle(color: Colors.green, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  const SizedBox(height: 16),
 
                   // Alamat
                   _buildTextField(
@@ -640,6 +900,97 @@ class _BuatReservasiPageState extends State<BuatReservasiPage> {
                                   style: TextStyle(
                                     color: Colors.grey[400],
                                     fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // Section Title for Foto Penerima
+                  _buildSectionTitle(Icons.person, 'Foto Penerima (Opsional)'),
+
+                  const SizedBox(height: 12),
+
+                  // Foto Penerima Upload
+                  GestureDetector(
+                    onTap: _pickFotoPenerima,
+                    child: Container(
+                      width: double.infinity,
+                      height: 150,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: _fotoPenerimaBytes != null
+                              ? Colors.green
+                              : Colors.grey[300]!,
+                          width: 2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                          ),
+                        ],
+                      ),
+                      child: _fotoPenerimaBytes != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(14),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  Image.memory(_fotoPenerimaBytes!, fit: BoxFit.cover),
+                                  Positioned(
+                                    top: 8,
+                                    right: 8,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: const Icon(
+                                        Icons.check,
+                                        color: Colors.white,
+                                        size: 16,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF11998e).withOpacity(0.1),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.person_add_alt_1,
+                                    size: 28,
+                                    color: Color(0xFF11998e),
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                const Text(
+                                  'Tap untuk foto penerima PS',
+                                  style: TextStyle(
+                                    color: Color(0xFF11998e),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Foto orang yang akan menerima unit PS',
+                                  style: TextStyle(
+                                    color: Colors.grey[400],
+                                    fontSize: 11,
                                   ),
                                 ),
                               ],
