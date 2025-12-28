@@ -11,9 +11,9 @@ import 'midtrans_mobile.dart' if (dart.library.html) 'midtrans_web.dart';
 /// Konfigurasi Midtrans untuk QuadraPlay
 class MidtransAppConfig {
   // Sandbox credentials
-  static const String clientKey = 'Mid-client-DVAMVogPvIprVqdb';
-  static const String merchantId = 'G435251730';
-  static const String serverKey = 'Mid-server-3qgT8saiYzGrj5nZu5cdpmhd'; // SANDBOX ONLY!
+  static const String clientKey = ''; 
+  static const String merchantId = '';
+  static const String serverKey = ''; // SANDBOX ONLY!
 
   // Direct Midtrans API (untuk testing tanpa backend)
   static const String snapApiUrl = 'https://app.sandbox.midtrans.com/snap/v1/transactions';
