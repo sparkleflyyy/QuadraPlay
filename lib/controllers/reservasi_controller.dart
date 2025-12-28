@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/reservasi_model.dart';
+import '../models/driver_model.dart';
 import '../services/reservasi_service.dart';
 
 /// Controller untuk Reservasi menggunakan ChangeNotifier (Provider)
@@ -16,6 +17,12 @@ class ReservasiController extends ChangeNotifier {
 
   String? _lastCreatedReservasiId;
   
+  // Statistics
+  int _totalActiveRentals = 0;
+  int _totalUnitsRented = 0;
+  Map<String, int> _rentalsByType = {};
+  List<ReservasiModel> _activeRentals = [];
+  
   // Getters
   List<ReservasiModel> get reservasiList => _reservasiList;
   List<ReservasiModel> get filteredReservasi {
@@ -29,6 +36,12 @@ class ReservasiController extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   String? get filterStatus => _filterStatus;
   String? get lastCreatedReservasiId => _lastCreatedReservasiId;
+  
+  // Statistics getters
+  int get totalActiveRentals => _totalActiveRentals;
+  int get totalUnitsRented => _totalUnitsRented;
+  Map<String, int> get rentalsByType => _rentalsByType;
+  List<ReservasiModel> get activeRentals => _activeRentals;
 
   /// Create reservasi baru
   Future<bool> createReservasi({
@@ -41,6 +54,7 @@ class ReservasiController extends ChangeNotifier {
     required String alamat,
     required String noWA,
     required XFile ktpFile,
+    String? kordinat,
   }) async {
     _setLoading(true);
     _clearError();
@@ -70,6 +84,7 @@ class ReservasiController extends ChangeNotifier {
         alamat: alamat,
         noWA: noWA,
         ktpUrl: ktpUrl,
+        kordinat: kordinat,
       );
       print('DEBUG: Reservasi result: $result');
 
@@ -94,6 +109,33 @@ class ReservasiController extends ChangeNotifier {
     } finally {
       _setLoading(false);
     }
+  }
+
+  /// Create reservasi dengan kordinat
+  Future<bool> createReservasiWithKordinat({
+    required String userId,
+    required String psId,
+    required int jumlahHari,
+    required int jumlahUnit,
+    required DateTime tglMulai,
+    required DateTime tglSelesai,
+    required String alamat,
+    required String noWA,
+    required XFile ktpFile,
+    String? kordinat,
+  }) async {
+    return createReservasi(
+      userId: userId,
+      psId: psId,
+      jumlahHari: jumlahHari,
+      jumlahUnit: jumlahUnit,
+      tglMulai: tglMulai,
+      tglSelesai: tglSelesai,
+      alamat: alamat,
+      noWA: noWA,
+      ktpFile: ktpFile,
+      kordinat: kordinat,
+    );
   }
 
   /// Create reservasi dengan URL KTP yang sudah diupload
@@ -233,6 +275,173 @@ class ReservasiController extends ChangeNotifier {
     return _updateStatus(reservasiId, 'finish');
   }
 
+  /// Assign driver to reservasi
+  Future<bool> assignDriver(String reservasiId, DriverModel driver) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final result = await _reservasiService.assignDriver(
+        reservasiId: reservasiId,
+        driver: driver,
+      );
+
+      if (result['success']) {
+        await loadAllReservasi();
+        return true;
+      } else {
+        _errorMessage = result['message'];
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = 'Terjadi kesalahan: $e';
+      notifyListeners();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Mark PS as installed with photo proof
+  Future<bool> markAsInstalled(String reservasiId, XFile fotoFile) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final bytes = await fotoFile.readAsBytes();
+      final base64Image = base64Encode(bytes);
+      final ext = fotoFile.name.split('.').last.toLowerCase();
+      final mimeType = ext == 'png' ? 'image/png' : 'image/jpeg';
+      final fotoBuktiPasang = 'data:$mimeType;base64,$base64Image';
+
+      final result = await _reservasiService.markAsInstalled(
+        reservasiId: reservasiId,
+        fotoBuktiPasang: fotoBuktiPasang,
+      );
+
+      if (result['success']) {
+        await loadAllReservasi();
+        return true;
+      } else {
+        _errorMessage = result['message'];
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = 'Terjadi kesalahan: $e';
+      notifyListeners();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Start rental with timer
+  Future<bool> startRentalWithTimer(String reservasiId) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final result = await _reservasiService.startRentalWithTimer(reservasiId);
+
+      if (result['success']) {
+        await loadAllReservasi();
+        return true;
+      } else {
+        _errorMessage = result['message'];
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = 'Terjadi kesalahan: $e';
+      notifyListeners();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Update foto user penerima
+  Future<bool> updateFotoUserPenerima(String reservasiId, XFile fotoFile) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final bytes = await fotoFile.readAsBytes();
+      final base64Image = base64Encode(bytes);
+      final ext = fotoFile.name.split('.').last.toLowerCase();
+      final mimeType = ext == 'png' ? 'image/png' : 'image/jpeg';
+      final fotoUserPenerima = 'data:$mimeType;base64,$base64Image';
+
+      final result = await _reservasiService.updateFotoUserPenerima(
+        reservasiId: reservasiId,
+        fotoUserPenerima: fotoUserPenerima,
+      );
+
+      if (result['success']) {
+        await loadAllReservasi();
+        return true;
+      } else {
+        _errorMessage = result['message'];
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = 'Terjadi kesalahan: $e';
+      notifyListeners();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Update location coordinates
+  Future<bool> updateLocation(String reservasiId, double lat, double lng) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final result = await _reservasiService.updateLocation(
+        reservasiId: reservasiId,
+        latitude: lat,
+        longitude: lng,
+      );
+
+      if (result['success']) {
+        await loadAllReservasi();
+        return true;
+      } else {
+        _errorMessage = result['message'];
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = 'Terjadi kesalahan: $e';
+      notifyListeners();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Load active rental statistics
+  Future<void> loadActiveRentalStats() async {
+    try {
+      final result = await _reservasiService.getActiveRentalStats();
+
+      if (result['success']) {
+        _totalActiveRentals = result['total_active'] ?? 0;
+        _totalUnitsRented = result['total_units'] ?? 0;
+        _rentalsByType = Map<String, int>.from(result['by_type'] ?? {});
+        _activeRentals = result['rentals'] ?? [];
+        notifyListeners();
+      }
+    } catch (e) {
+      print('Error loading stats: $e');
+    }
+  }
+
   /// Internal method to update status
   Future<bool> _updateStatus(String reservasiId, String action) async {
     _setLoading(true);
@@ -260,6 +469,41 @@ class ReservasiController extends ChangeNotifier {
 
       if (result['success']) {
         await loadAllReservasi(); // Refresh list
+        return true;
+      } else {
+        _errorMessage = result['message'];
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _errorMessage = 'Terjadi kesalahan: $e';
+      notifyListeners();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Upload bukti terpasang oleh user
+  Future<bool> uploadBuktiTerpasang(String reservasiId, XFile fotoFile, String driverId) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final bytes = await fotoFile.readAsBytes();
+      final base64Image = base64Encode(bytes);
+      final ext = fotoFile.name.split('.').last.toLowerCase();
+      final mimeType = ext == 'png' ? 'image/png' : 'image/jpeg';
+      final buktiTerpasang = 'data:$mimeType;base64,$base64Image';
+
+      final result = await _reservasiService.uploadBuktiTerpasang(
+        reservasiId: reservasiId,
+        buktiTerpasang: buktiTerpasang,
+        driverId: driverId,
+      );
+
+      if (result['success']) {
+        // Refresh based on context
         return true;
       } else {
         _errorMessage = result['message'];

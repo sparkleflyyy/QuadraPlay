@@ -24,10 +24,13 @@ android {
         applicationId = "com.example.quadraplay"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        minSdk = flutter.minSdkVersion // Required for geolocator and midtrans_sdk
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        
+        // MultiDex support for older devices
+        multiDexEnabled = true
     }
 
     buildTypes {
@@ -35,6 +38,11 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            
+            // Nonaktifkan minify untuk menghindari masalah R8
+            // Aktifkan kembali setelah testing berhasil
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }

@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import 'package:quadraplay/config.dart';
 import 'package:quadraplay/restapi.dart';
 import '../models/reservasi_model.dart';
+import '../models/driver_model.dart';
 import 'ps_item_service.dart';
 
 /// Service untuk operasi Reservasi
@@ -55,6 +56,7 @@ class ReservasiService {
     required String alamat,
     required String noWA,
     required String ktpUrl,
+    String? kordinat,
   }) async {
     try {
       // Validasi input
@@ -116,6 +118,7 @@ class ReservasiService {
         totalHarga.toString(),
         ReservasiStatus.belumBayar, // Status awal: belum bayar
         createdAt,
+        kordinat: kordinat ?? '',
       );
 
       if (result != '[]') {
@@ -133,6 +136,7 @@ class ReservasiService {
           totalHarga: totalHarga,
           status: ReservasiStatus.belumBayar,
           createdAt: DateTime.now(),
+          kordinat: kordinat,
         );
 
         return {
@@ -318,6 +322,250 @@ class ReservasiService {
       reservasiId: reservasiId,
       newStatus: ReservasiStatus.finished,
     );
+  }
+
+  /// Assign driver to reservasi and update status to shipping
+  Future<Map<String, dynamic>> assignDriver({
+    required String reservasiId,
+    required DriverModel driver,
+  }) async {
+    try {
+      if (reservasiId.isEmpty) {
+        return {'success': false, 'message': 'Reservasi ID tidak boleh kosong'};
+      }
+
+      // Update status ke shipping
+      await _dataService.updateWhere(
+        'reservasi_id', reservasiId, 'status', ReservasiStatus.shipping,
+        token, project, 'reservasi', appid,
+      );
+
+      // Update driver info
+      await _dataService.updateReservasiField(
+        reservasiId, 'driver_id', driver.driverId, token, project, appid,
+      );
+      await _dataService.updateReservasiField(
+        reservasiId, 'driver_name', driver.namaDriver, token, project, appid,
+      );
+      await _dataService.updateReservasiField(
+        reservasiId, 'driver_phone', driver.noWa, token, project, appid,
+      );
+      await _dataService.updateReservasiField(
+        reservasiId, 'driver_photo', driver.fotoProfil, token, project, appid,
+      );
+
+      // Update driver status menjadi busy (tidak tersedia)
+      await _dataService.updateWhere(
+        'driver_id', driver.driverId, 'status', 'busy',
+        token, project, 'drivers', appid,
+      );
+
+      return {
+        'success': true,
+        'message': 'Driver berhasil di-assign, status: Sedang Dikirim',
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
+    }
+  }
+
+  /// Mark PS as installed with proof photo
+  Future<Map<String, dynamic>> markAsInstalled({
+    required String reservasiId,
+    required String fotoBuktiPasang,
+  }) async {
+    try {
+      if (reservasiId.isEmpty) {
+        return {'success': false, 'message': 'Reservasi ID tidak boleh kosong'};
+      }
+      if (fotoBuktiPasang.isEmpty) {
+        return {'success': false, 'message': 'Foto bukti pasang wajib diupload'};
+      }
+
+      // Update status ke installed
+      await _dataService.updateWhere(
+        'reservasi_id', reservasiId, 'status', ReservasiStatus.installed,
+        token, project, 'reservasi', appid,
+      );
+
+      // Update foto bukti pasang
+      await _dataService.updateReservasiField(
+        reservasiId, 'foto_bukti_pasang', fotoBuktiPasang, token, project, appid,
+      );
+
+      return {
+        'success': true,
+        'message': 'PS terpasang, menunggu aktivasi sewa',
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
+    }
+  }
+
+  /// Upload bukti terpasang oleh user dan update status + driver availability
+  Future<Map<String, dynamic>> uploadBuktiTerpasang({
+    required String reservasiId,
+    required String buktiTerpasang,
+    required String driverId,
+  }) async {
+    try {
+      if (reservasiId.isEmpty) {
+        return {'success': false, 'message': 'Reservasi ID tidak boleh kosong'};
+      }
+      if (buktiTerpasang.isEmpty) {
+        return {'success': false, 'message': 'Foto bukti terpasang wajib diupload'};
+      }
+
+      // Update status ke installed
+      await _dataService.updateWhere(
+        'reservasi_id', reservasiId, 'status', ReservasiStatus.installed,
+        token, project, 'reservasi', appid,
+      );
+
+      // Update foto bukti terpasang
+      await _dataService.updateReservasiField(
+        reservasiId, 'bukti_terpasang', buktiTerpasang, token, project, appid,
+      );
+
+      // Update driver status menjadi available lagi
+      if (driverId.isNotEmpty) {
+        await _dataService.updateWhere(
+          'driver_id', driverId, 'status', 'available',
+          token, project, 'drivers', appid,
+        );
+      }
+
+      return {
+        'success': true,
+        'message': 'Bukti terpasang berhasil diupload, menunggu aktivasi sewa',
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
+    }
+  }
+
+  /// Start rental with timer (waktu_sewa_mulai)
+  Future<Map<String, dynamic>> startRentalWithTimer(String reservasiId) async {
+    try {
+      if (reservasiId.isEmpty) {
+        return {'success': false, 'message': 'Reservasi ID tidak boleh kosong'};
+      }
+
+      // Get reservasi untuk mendapatkan jumlah_hari
+      final existing = await getReservasiById(reservasiId);
+      if (!existing['success']) {
+        return {'success': false, 'message': 'Reservasi tidak ditemukan'};
+      }
+
+      final reservasi = existing['reservasi'] as ReservasiModel;
+      final now = DateTime.now();
+      final endTime = now.add(Duration(days: reservasi.jumlahHari));
+
+      // Update status ke active
+      await _dataService.updateWhere(
+        'reservasi_id', reservasiId, 'status', ReservasiStatus.active,
+        token, project, 'reservasi', appid,
+      );
+
+      // Update waktu sewa mulai
+      await _dataService.updateReservasiField(
+        reservasiId, 'waktu_sewa_mulai', now.toIso8601String(), token, project, appid,
+      );
+
+      // Update waktu sewa berakhir
+      await _dataService.updateReservasiField(
+        reservasiId, 'waktu_sewa_berakhir', endTime.toIso8601String(), token, project, appid,
+      );
+
+      return {
+        'success': true,
+        'message': 'Sewa dimulai! Timer berjalan.',
+        'waktu_mulai': now,
+        'waktu_berakhir': endTime,
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
+    }
+  }
+
+  /// Update foto user penerima
+  Future<Map<String, dynamic>> updateFotoUserPenerima({
+    required String reservasiId,
+    required String fotoUserPenerima,
+  }) async {
+    try {
+      if (reservasiId.isEmpty) {
+        return {'success': false, 'message': 'Reservasi ID tidak boleh kosong'};
+      }
+
+      await _dataService.updateReservasiField(
+        reservasiId, 'foto_user_penerima', fotoUserPenerima, token, project, appid,
+      );
+
+      return {
+        'success': true,
+        'message': 'Foto penerima berhasil diupdate',
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
+    }
+  }
+
+  /// Update lokasi koordinat
+  Future<Map<String, dynamic>> updateLocation({
+    required String reservasiId,
+    required double latitude,
+    required double longitude,
+  }) async {
+    try {
+      if (reservasiId.isEmpty) {
+        return {'success': false, 'message': 'Reservasi ID tidak boleh kosong'};
+      }
+
+      await _dataService.updateReservasiField(
+        reservasiId, 'latitude', latitude.toString(), token, project, appid,
+      );
+      await _dataService.updateReservasiField(
+        reservasiId, 'longitude', longitude.toString(), token, project, appid,
+      );
+
+      return {
+        'success': true,
+        'message': 'Lokasi berhasil diupdate',
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
+    }
+  }
+
+  /// Get statistics for active rentals
+  Future<Map<String, dynamic>> getActiveRentalStats() async {
+    try {
+      final result = await _dataService.selectWhere(
+        token, project, 'reservasi', appid, 'status', ReservasiStatus.active,
+      );
+
+      final reservasiData = _parseApiResponse(result);
+      final List<ReservasiModel> activeRentals = reservasiData
+          .map((data) => ReservasiModel.fromJson(data))
+          .toList();
+
+      // Group by PS type
+      Map<String, int> psByType = {};
+      for (var r in activeRentals) {
+        psByType[r.psId] = (psByType[r.psId] ?? 0) + r.jumlahUnit;
+      }
+
+      return {
+        'success': true,
+        'total_active': activeRentals.length,
+        'total_units': activeRentals.fold<int>(0, (sum, r) => sum + r.jumlahUnit),
+        'rentals': activeRentals,
+        'by_type': psByType,
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Terjadi kesalahan: $e'};
+    }
   }
 
   /// Get reservasi by status
