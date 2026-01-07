@@ -10,6 +10,7 @@ import '../controllers/payment_controller.dart';
 import '../models/reservasi_model.dart';
 import 'login_page.dart';
 import 'payment_page.dart';
+import 'list_ps_page.dart';
 
 // Helper function to clean base64 string
 String _cleanBase64(String base64String) {
@@ -98,7 +99,17 @@ class _ProfilePageState extends State<ProfilePage>
                     size: 18,
                   ),
                 ),
-                onPressed: () => Navigator.pop(context),
+                onPressed: () {
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  } else {
+                    // Fallback: jika tidak ada route untuk di-pop, kembali ke ListPSPage
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ListPSPage()),
+                    );
+                  }
+                },
               ),
               actions: [
                 IconButton(

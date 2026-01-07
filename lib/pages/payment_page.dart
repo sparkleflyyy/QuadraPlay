@@ -6,6 +6,7 @@ import '../controllers/payment_controller.dart';
 import '../controllers/auth_controller.dart';
 import '../services/midtrans_service.dart';
 import 'profile_page.dart';
+import 'list_ps_page.dart';
 
 class PaymentPage extends StatefulWidget {
   final String reservasiId;
@@ -160,8 +161,12 @@ class _PaymentPageState extends State<PaymentPage> {
                 Navigator.pop(context);
                 Navigator.pushAndRemoveUntil(
                   context,
-                  MaterialPageRoute(builder: (_) => const ProfilePage()),
+                  MaterialPageRoute(builder: (_) => const ListPSPage()),
                   (route) => false,
+                );
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProfilePage()),
                 );
               },
               style: ElevatedButton.styleFrom(
@@ -231,8 +236,12 @@ class _PaymentPageState extends State<PaymentPage> {
               onPressed: () {
                 Navigator.pushAndRemoveUntil(
                   context,
-                  MaterialPageRoute(builder: (_) => const ProfilePage()),
+                  MaterialPageRoute(builder: (_) => const ListPSPage()),
                   (route) => false,
+                );
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProfilePage()),
                 );
               },
               style: ElevatedButton.styleFrom(
@@ -294,8 +303,12 @@ class _PaymentPageState extends State<PaymentPage> {
               onPressed: () {
                 Navigator.pushAndRemoveUntil(
                   context,
-                  MaterialPageRoute(builder: (_) => const ProfilePage()),
+                  MaterialPageRoute(builder: (_) => const ListPSPage()),
                   (route) => false,
+                );
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ProfilePage()),
                 );
               },
               style: ElevatedButton.styleFrom(
