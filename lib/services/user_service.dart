@@ -165,15 +165,15 @@ class UserService {
     }
   }
 
-  /// Delete user by ID (admin only)
-  Future<Map<String, dynamic>> deleteUser(String id) async {
+  /// Delete user by userId (admin only)
+  Future<Map<String, dynamic>> deleteUser(String userId) async {
     try {
-      if (id.isEmpty) {
-        return {'success': false, 'message': 'ID tidak boleh kosong'};
+      if (userId.isEmpty) {
+        return {'success': false, 'message': 'User ID tidak boleh kosong'};
       }
 
-      final result = await _dataService.removeId(
-        token, project, 'users', appid, id,
+      final result = await _dataService.removeWhere(
+        token, project, 'users', appid, 'user_id', userId,
       );
 
       if (result == true) {

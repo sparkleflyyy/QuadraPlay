@@ -15,6 +15,8 @@ import '../models/payment_model.dart';
 import '../models/user_model.dart';
 import '../models/driver_model.dart';
 import '../services/user_service.dart';
+import '../services/ps_item_service.dart';
+import '../services/email_notification_service.dart';
 import 'login_page.dart';
 import 'admin_dashboard_page.dart';
 
@@ -822,7 +824,7 @@ class _AdminPanelPageState extends State<AdminPanelPage>
                 const SizedBox(height: 12),
 
                 // Payment Section
-                _buildPaymentSection(payment),
+                _buildPaymentSection(payment, reservasi),
 
                 const SizedBox(height: 16),
 
@@ -866,7 +868,7 @@ class _AdminPanelPageState extends State<AdminPanelPage>
     );
   }
 
-  Widget _buildPaymentSection(PaymentModel? payment) {
+  Widget _buildPaymentSection(PaymentModel? payment, ReservasiModel? reservasi) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -878,13 +880,41 @@ class _AdminPanelPageState extends State<AdminPanelPage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(Icons.payment, color: Colors.grey[600], size: 18),
-              const SizedBox(width: 8),
-              const Text(
-                'Pembayaran',
-                style: TextStyle(fontWeight: FontWeight.bold),
+              Row(
+                children: [
+                  Icon(Icons.payment, color: Colors.grey[600], size: 18),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Pembayaran',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ],
               ),
+              // Tombol refresh status dari Midtrans
+              if (payment != null && payment.status == PaymentStatus.pending)
+                InkWell(
+                  onTap: () => _refreshPaymentStatus(payment.orderId),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.refresh, color: Colors.blue[700], size: 14),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Cek Status',
+                          style: TextStyle(color: Colors.blue[700], fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 8),
@@ -894,37 +924,46 @@ class _AdminPanelPageState extends State<AdminPanelPage>
               style: TextStyle(color: Colors.grey[600], fontSize: 13),
             ),
             const SizedBox(height: 8),
-            if (payment.buktiPembayaran != null && payment.buktiPembayaran!.isNotEmpty)
-              _buildImageButton(
-                'Lihat Bukti Bayar',
-                Icons.receipt,
-                payment.buktiPembayaran!,
-              ),
-            if (payment.status == PaymentStatus.pending)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _confirmPayment(payment.paymentId),
-                    icon: const Icon(
-                      Icons.check,
-                      size: 16,
-                      color: Colors.white,
-                    ),
-                    label: const Text(
-                      'Konfirmasi Pembayaran',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+            Row(
+              children: [
+                if (payment.buktiPembayaran != null && payment.buktiPembayaran!.isNotEmpty) ...[
+                  _buildImageButton(
+                    'Lihat Bukti Bayar',
+                    Icons.receipt,
+                    payment.buktiPembayaran!,
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                // Status pembayaran badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: payment.status == PaymentStatus.settlement 
+                      ? Colors.green.withOpacity(0.1)
+                      : payment.status == PaymentStatus.pending
+                        ? Colors.orange.withOpacity(0.1)
+                        : Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    payment.status == PaymentStatus.settlement 
+                      ? '✓ Lunas'
+                      : payment.status == PaymentStatus.pending
+                        ? 'Menunggu Bayar'
+                        : 'Gagal',
+                    style: TextStyle(
+                      color: payment.status == PaymentStatus.settlement 
+                        ? Colors.green[700]
+                        : payment.status == PaymentStatus.pending
+                          ? Colors.orange[700]
+                          : Colors.red[700],
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
-              ),
+              ],
+            ),
           ] else
             Text(
               'Belum ada pembayaran',
@@ -966,14 +1005,13 @@ class _AdminPanelPageState extends State<AdminPanelPage>
               ],
             ),
           ),
-        // Status: pending/paid - Approve or Reject
-        if (reservasi.status == ReservasiStatus.pending ||
-            reservasi.status == ReservasiStatus.paid) ...[
+        // Status: paid - Approve or Reject (setelah pembayaran berhasil)
+        if (reservasi.status == ReservasiStatus.paid) ...[
           _buildActionButton(
             'Approve',
             Icons.check,
             Colors.green,
-            () => _updateReservasiStatus(reservasi.reservasiId, 'approve'),
+            () => _updateReservasiStatus(reservasi.reservasiId, 'approve', reservasi: reservasi),
           ),
           _buildActionButton(
             'Reject',
@@ -1330,8 +1368,244 @@ class _AdminPanelPageState extends State<AdminPanelPage>
             ),
           ],
         ),
+        trailing: !isAdmin
+            ? IconButton(
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.delete_outline,
+                    color: Colors.red,
+                    size: 20,
+                  ),
+                ),
+                onPressed: () => _showDeleteUserDialog(user),
+              )
+            : null,
       ),
     );
+  }
+
+  void _showDeleteUserDialog(UserModel user) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.warning_amber_rounded, color: Colors.red),
+            ),
+            const SizedBox(width: 12),
+            const Text('Hapus User'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Apakah Anda yakin ingin menghapus user ini?',
+              style: TextStyle(color: Colors.grey[700]),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Center(
+                      child: Text(
+                        user.name.isNotEmpty ? user.name[0].toUpperCase() : 'U',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user.name,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          user.email,
+                          style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline, color: Colors.red, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Tindakan ini tidak dapat dibatalkan!',
+                      style: TextStyle(color: Colors.red[700], fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Batal',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _deleteUser(user);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text(
+              'Hapus',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteUser(UserModel user) async {
+    try {
+      // Check if user has valid userId
+      if (user.userId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('User ID tidak valid'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+        return;
+      }
+
+      // Show loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(color: Color(0xFF667eea)),
+        ),
+      );
+
+      final result = await _userService.deleteUser(user.userId);
+
+      // Close loading
+      if (mounted) Navigator.pop(context);
+
+      if (result['success']) {
+        // Remove from local list
+        setState(() {
+          _users.removeWhere((u) => u.userId == user.userId);
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text('User ${user.name} berhasil dihapus')),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.white),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(result['message'] ?? 'Gagal menghapus user')),
+                ],
+              ),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Close loading if still showing
+      if (mounted) Navigator.pop(context);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Terjadi kesalahan: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   // ==================== Helper Widgets ====================
@@ -1773,13 +2047,95 @@ class _AdminPanelPageState extends State<AdminPanelPage>
     );
   }
 
-  Future<void> _updateReservasiStatus(String reservasiId, String action) async {
+  /// Refresh status pembayaran dari Midtrans
+  Future<void> _refreshPaymentStatus(String orderId) async {
+    if (orderId.isEmpty) return;
+    
+    final paymentController = context.read<PaymentController>();
+    final reservasiController = context.read<ReservasiController>();
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            SizedBox(width: 12),
+            Text('Mengecek status pembayaran...'),
+          ],
+        ),
+        backgroundColor: Colors.blue,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
+    
+    final success = await paymentController.refreshPaymentStatus(orderId);
+    
+    if (success) {
+      // Refresh reservasi list juga
+      await reservasiController.loadAllReservasi();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Status berhasil diperbarui ✓'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(paymentController.errorMessage ?? 'Gagal cek status'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _updateReservasiStatus(String reservasiId, String action, {ReservasiModel? reservasi}) async {
     final controller = context.read<ReservasiController>();
     bool success = false;
 
     switch (action) {
       case 'approve':
         success = await controller.approveReservasi(reservasiId);
+        // Kirim email saat approve
+        if (success && reservasi != null) {
+          final emailSent = await _sendConfirmationEmail(null, reservasi);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(emailSent 
+                  ? 'Reservasi diapprove & email terkirim ✓' 
+                  : 'Reservasi diapprove (email gagal)'),
+                backgroundColor: emailSent ? Colors.green : Colors.orange,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            );
+          }
+          return; // Skip snackbar di bawah
+        }
         break;
       case 'reject':
         success = await controller.rejectReservasi(reservasiId);
@@ -1810,21 +2166,69 @@ class _AdminPanelPageState extends State<AdminPanelPage>
     }
   }
 
-  Future<void> _confirmPayment(String paymentId) async {
-    final success = await context.read<PaymentController>().confirmPayment(
-      paymentId,
-    );
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(success ? 'Payment dikonfirmasi' : 'Gagal konfirmasi'),
-          backgroundColor: success ? Colors.green : Colors.red,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-        ),
+  /// Kirim email konfirmasi ke user
+  Future<bool> _sendConfirmationEmail(PaymentModel? payment, ReservasiModel? reservasi) async {
+    if (reservasi == null) {
+      debugPrint('❌ Email: reservasi null');
+      return false;
+    }
+    
+    try {
+      debugPrint('📧 Memulai proses kirim email...');
+      
+      // Get user data untuk email
+      final userService = UserService();
+      final userResult = await userService.getUserById(reservasi.userId);
+      
+      if (!userResult['success']) {
+        debugPrint('❌ Email: Gagal get user data - ${userResult['message']}');
+        return false;
+      }
+      
+      final user = userResult['user'] as UserModel;
+      debugPrint('✓ User ditemukan: ${user.email}');
+      
+      // Get PS item name
+      final psItemService = PSItemService();
+      final psResult = await psItemService.getPSItemById(reservasi.psId);
+      String itemName = 'PlayStation';
+      if (psResult['success']) {
+        itemName = psResult['item'].nama ?? 'PlayStation';
+      }
+      debugPrint('✓ Item: $itemName');
+      
+      // Format tanggal
+      final dateFormat = DateFormat('dd MMMM yyyy', 'id_ID');
+      final tglMulai = dateFormat.format(reservasi.tglMulai);
+      final tglSelesai = dateFormat.format(reservasi.tglSelesai);
+      
+      debugPrint('📧 Mengirim email ke: ${user.email}');
+      
+      // Kirim email
+      final emailResult = await EmailNotificationService.sendReservationConfirmation(
+        email: user.email,
+        reservasiId: reservasi.reservasiId.substring(0, 8),
+        customerName: user.name,
+        itemName: itemName,
+        jumlahUnit: reservasi.jumlahUnit,
+        jumlahHari: reservasi.jumlahHari,
+        tglMulai: tglMulai,
+        tglSelesai: tglSelesai,
+        totalHarga: reservasi.totalHarga,
+        alamat: reservasi.alamat,
+        noWA: reservasi.noWA,
       );
+      
+      if (emailResult['success'] == true) {
+        debugPrint('✅ Email berhasil dikirim ke ${user.email}');
+        return true;
+      } else {
+        debugPrint('❌ Gagal kirim email: ${emailResult['message']}');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('❌ Error sending email: $e');
+      return false;
     }
   }
 

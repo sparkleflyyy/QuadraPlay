@@ -304,7 +304,7 @@ class PaymentService {
       if (transactionStatus == PaymentStatus.settlement ||
           transactionStatus == PaymentStatus.capture) {
         newReservasiStatus =
-            ReservasiStatus.pending; // Menunggu konfirmasi admin
+            ReservasiStatus.paid; // Sudah bayar, menunggu admin approve/reject
       } else if (transactionStatus == PaymentStatus.cancel ||
           transactionStatus == PaymentStatus.expire) {
         newReservasiStatus = ReservasiStatus.cancelled;
