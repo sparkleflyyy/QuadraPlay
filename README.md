@@ -11,7 +11,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white" alt="Flutter"/>
   <img src="https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white" alt="Dart"/>
-  <img src="https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black" alt="Firebase"/>
+  <img src="https://img.shields.io/badge/247Go-Cloud%20Service-4285F4?style=for-the-badge&logo=cloud&logoColor=white" alt="247Go Cloud"/>
 </p>
 
 ---
@@ -54,21 +54,11 @@ Terpasang → Masa Sewa Aktif → Dijemput → Selesai
 |-----------|--------|
 | **Flutter** | Framework pengembangan aplikasi cross-platform |
 | **Dart** | Bahasa pemrograman utama |
-| **Firebase Auth** | Sistem autentikasi pengguna |
-| **Firebase Storage** | Penyimpanan file dan gambar |
+| **247Go Cloud Service** | Backend data service & penyimpanan file/gambar (console.247go.app) |
 | **Midtrans** | Payment gateway untuk transaksi pembayaran |
 | **Google Maps** | Integrasi layanan peta dan lokasi |
 | **Provider** | State management |
 | **PHP + MySQL** | Backend API dan database |
-
-## Screenshots
-
-<p align="center">
-  <img src="screenshots/login.png" width="200" alt="Login"/>
-  <img src="screenshots/home.png" width="200" alt="Home"/>
-  <img src="screenshots/detail.png" width="200" alt="Detail"/>
-  <img src="screenshots/reservasi.png" width="200" alt="Reservasi"/>
-</p>
 
 ## Panduan Instalasi
 
@@ -91,10 +81,10 @@ Terpasang → Masa Sewa Aktif → Dijemput → Selesai
    flutter pub get
    ```
 
-3. **Konfigurasi Firebase**
-   - Buat project baru di Firebase Console
-   - Download file `google-services.json` dan letakkan di direktori `android/app/`
-   - Perbarui konfigurasi pada file `firebase_options.dart`
+3. **Konfigurasi Backend**
+   - Akses console.247go.app untuk konfigurasi data service
+   - Perbarui konfigurasi API endpoint pada file `config.dart`
+   - Pastikan file `google-services.json` tersedia di direktori `android/app/` untuk Firebase Storage
 
 4. **Menjalankan Aplikasi**
    ```bash
@@ -125,7 +115,6 @@ quadraplay/
 │   ├── models/          # Model data
 │   ├── pages/           # Halaman UI
 │   ├── services/        # Service untuk komunikasi API
-│   ├── utils/           # Fungsi utilitas
 │   ├── config.dart      # Konfigurasi aplikasi
 │   ├── main.dart        # Entry point aplikasi
 │   └── restapi.dart     # Handler REST API
