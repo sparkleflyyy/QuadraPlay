@@ -16,6 +16,14 @@ class ListPSPage extends StatefulWidget {
 }
 
 class _ListPSPageState extends State<ListPSPage> {
+  // Konstanta warna tema
+  static const Color _primaryColor = Color(0xFF2563EB);
+  static const Color _secondaryColor = Color(0xFF7C3AED);
+  static const Color _bgColor = Color(0xFFF8FAFC);
+  static const Color _cardColor = Colors.white;
+  static const Color _textPrimary = Color(0xFF1E293B);
+  static const Color _textSecondary = Color(0xFF64748B);
+
   @override
   void initState() {
     super.initState();
@@ -27,7 +35,7 @@ class _ListPSPageState extends State<ListPSPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6FA),
+      backgroundColor: _bgColor,
       body: CustomScrollView(
         slivers: [
           // Modern App Bar
@@ -36,14 +44,14 @@ class _ListPSPageState extends State<ListPSPage> {
             floating: false,
             pinned: true,
             stretch: true,
-            backgroundColor: const Color(0xFF667eea),
+            backgroundColor: _primaryColor,
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                    colors: [_primaryColor, _secondaryColor],
                   ),
                 ),
                 child: SafeArea(

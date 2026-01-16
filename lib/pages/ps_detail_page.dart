@@ -15,6 +15,11 @@ class PSDetailPage extends StatefulWidget {
 }
 
 class _PSDetailPageState extends State<PSDetailPage> {
+  // Konstanta warna tema
+  static const Color _primaryColor = Color(0xFF2563EB);
+  static const Color _secondaryColor = Color(0xFF7C3AED);
+  static const Color _bgColor = Color(0xFFF8FAFC);
+
   @override
   void initState() {
     super.initState();
@@ -26,12 +31,12 @@ class _PSDetailPageState extends State<PSDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6FA),
+      backgroundColor: _bgColor,
       body: Consumer<PSItemController>(
         builder: (context, controller, child) {
           if (controller.isLoading) {
             return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF667eea)),
+              child: CircularProgressIndicator(color: _primaryColor),
             );
           }
 
@@ -69,7 +74,7 @@ class _PSDetailPageState extends State<PSDetailPage> {
               SliverAppBar(
                 expandedHeight: 320,
                 pinned: true,
-                backgroundColor: const Color(0xFF667eea),
+                backgroundColor: _primaryColor,
                 leading: Padding(
                   padding: const EdgeInsets.all(8),
                   child: GestureDetector(
@@ -87,7 +92,7 @@ class _PSDetailPageState extends State<PSDetailPage> {
                       ),
                       child: const Icon(
                         Icons.arrow_back_ios_new,
-                        color: Color(0xFF667eea),
+                        color: _primaryColor,
                         size: 18,
                       ),
                     ),
@@ -103,7 +108,7 @@ class _PSDetailPageState extends State<PSDetailPage> {
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                            colors: [_primaryColor, _secondaryColor],
                           ),
                         ),
                       ),
@@ -330,14 +335,12 @@ class _PSDetailPageState extends State<PSDetailPage> {
                                 Container(
                                   padding: const EdgeInsets.all(10),
                                   decoration: BoxDecoration(
-                                    color: const Color(
-                                      0xFF667eea,
-                                    ).withOpacity(0.1),
+                                    color: _primaryColor.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: const Icon(
                                     Icons.description_outlined,
-                                    color: Color(0xFF667eea),
+                                    color: _primaryColor,
                                   ),
                                 ),
                                 const SizedBox(width: 12),
@@ -460,14 +463,14 @@ class _PSDetailPageState extends State<PSDetailPage> {
                 borderRadius: BorderRadius.circular(16),
                 gradient: item.stok > 0
                     ? const LinearGradient(
-                        colors: [Color(0xFF667eea), Color(0xFF764ba2)],
+                        colors: [_primaryColor, _secondaryColor],
                       )
                     : null,
                 color: item.stok > 0 ? null : Colors.grey[300],
                 boxShadow: item.stok > 0
                     ? [
                         BoxShadow(
-                          color: const Color(0xFF667eea).withOpacity(0.4),
+                          color: _primaryColor.withOpacity(0.4),
                           blurRadius: 15,
                           offset: const Offset(0, 8),
                         ),
@@ -526,7 +529,7 @@ class _PSDetailPageState extends State<PSDetailPage> {
 
   Widget _buildPlaceholderImage() {
     return Container(
-      color: const Color(0xFF667eea).withOpacity(0.3),
+      color: _primaryColor.withOpacity(0.3),
       child: const Center(
         child: Icon(Icons.gamepad, size: 80, color: Colors.white54),
       ),
@@ -553,10 +556,10 @@ class _PSDetailPageState extends State<PSDetailPage> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xFF667eea).withOpacity(0.1),
+              color: _primaryColor.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: const Color(0xFF667eea)),
+            child: Icon(icon, color: _primaryColor),
           ),
           const SizedBox(width: 16),
           Expanded(
