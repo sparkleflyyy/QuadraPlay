@@ -1,6 +1,6 @@
 # quadraplay
 
-A new Flutter project.
+Quadra Play adalah aplikasi peminjaman PlayStation yang dirancang untuk mempermudah pelanggan dalam melakukan reservasi dan peminjaman unit PlayStation melalui antarmuka seluler. Melalui aplikasi ini, pengguna dapat melihat ketersediaan unit PlayStation, memilih jadwal peminjaman, serta melakukan pemesanan secara real-time langsung dari perangkat seluler. Dari sisi admin, Quadra Play menyediakan fitur pengelolaan data peminjaman, termasuk verifikasi, konfirmasi, dan pemantauan status peminjaman, sehingga proses operasional peminjaman menjadi lebih tertata, terkontrol, dan efisien.
 
 ## Getting Started
 
