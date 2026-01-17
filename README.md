@@ -1,153 +1,92 @@
-# QuadraPlay - PlayStation Rental Application
-
-<p align="center">
-  <img src="lib/assets/icon/Logo.png" alt="QuadraPlay Logo" width="150"/>
-</p>
-
-<p align="center">
-  <strong>Aplikasi Rental PlayStation Modern dengan Sistem Delivery</strong>
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white" alt="Flutter"/>
-  <img src="https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white" alt="Dart"/>
-  <img src="https://img.shields.io/badge/247Go-Cloud%20Service-4285F4?style=for-the-badge&logo=cloud&logoColor=white" alt="247Go Cloud"/>
-</p>
-
 ---
+# QuadraPlay
 
-## Tentang Aplikasi
+QuadraPlay adalah aplikasi mobile untuk layanan rental PlayStation dengan fitur reservasi, manajemen pengiriman (delivery), dan integrasi pembayaran. Dokumen ini menjelaskan ringkasan proyek, teknologi inti, konfigurasi yang diperlukan untuk pengujian, serta akun uji yang dapat digunakan oleh penguji.
 
-**QuadraPlay** adalah aplikasi rental PlayStation berbasis mobile yang memudahkan pengguna untuk menyewa konsol PlayStation dengan sistem delivery langsung ke alamat pelanggan. Aplikasi ini menyediakan fitur manajemen reservasi yang komprehensif untuk administrator serta pengalaman pemesanan yang intuitif bagi pengguna.
+## Daftar Isi
+
+- Tentang
+- Fitur Utama
+- Teknologi
+- Konfigurasi (ringkasan dan contoh `config.dart`)
+- Akun Pengujian
+- Panduan Singkat Menjalankan Aplikasi
+- Catatan Keamanan
+- Kontak
+
+## Tentang
+
+QuadraPlay menyediakan mekanisme pemesanan PlayStation dengan layanan pengantaran ke alamat pengguna. Aplikasi menyertakan antarmuka pengguna untuk pelanggan dan panel administrasi untuk manajemen unit, reservasi, dan pengiriman.
 
 ## Fitur Utama
 
-### Fitur Pengguna (User)
-- **Autentikasi** - Sistem registrasi dan login dengan keamanan terenkripsi
-- **Katalog PlayStation** - Menampilkan daftar unit PlayStation yang tersedia (PS3, PS4, PS5)
-- **Reservasi Online** - Pemesanan PlayStation dengan pilihan tanggal dan durasi sewa
-- **Lokasi Delivery** - Penentuan alamat pengiriman menggunakan GPS dan Google Maps
-- **Pembayaran Online** - Integrasi dengan Midtrans Payment Gateway
-- **Verifikasi KTP** - Sistem upload identitas untuk keamanan transaksi
-- **Riwayat Reservasi** - Pemantauan status reservasi secara real-time
-- **Timer Sewa** - Penghitung mundur waktu sewa yang tersisa
+- Autentikasi pengguna (registrasi, login)
+- Katalog unit PlayStation (PS3 / PS4 / PS5)
+- Proses reservasi dengan pilihan tanggal dan durasi
+- Upload dokumen identitas (KTP)
+- Integrasi pembayaran melalui Midtrans (token / redirect)
+- Manajemen reservasi dan driver pada panel admin
+- Penyimpanan file/gambar menggunakan 247Go Cloud Service
 
-### Fitur Administrator
-- **Dashboard** - Statistik reservasi dan laporan pendapatan
-- **Manajemen PlayStation** - Pengelolaan data unit PlayStation (Create, Read, Update, Delete)
-- **Manajemen Reservasi** - Pengelolaan seluruh pesanan pelanggan
-- **Manajemen Driver** - Penugasan driver untuk proses delivery dan pickup
-- **Manajemen Pengguna** - Pengelolaan akun pengguna terdaftar
-- **Peta Lokasi** - Visualisasi lokasi delivery pada peta
-- **Fitur Pencarian** - Pencarian reservasi berdasarkan ID
+## Teknologi
 
-## Alur Reservasi
+| Komponen | Keterangan |
+|----------|------------|
+| Flutter (Dart) | Framework frontend aplikasi mobile |
+| 247Go Cloud Service | Backend data service dan penyimpanan file (`console.247go.app`) |
+| Midtrans | Gateway pembayaran (sandbox/production sesuai konfigurasi) |
+
+## Konfigurasi
+
+Semua pengaturan koneksi ke layanan eksternal disimpan pada `lib/config.dart`. Di bawah ini contoh minimal yang dapat digunakan sebagai template saat pengujian:
+
+```dart
+// lib/config.dart
+const String baseUrl = 'https://api.247go.app/v5/';
+const String token = '690de4f3fcee2015d33ec864'; 
+const String project = 'sewa_ps';
+const String appid = '693accaf23173f13b93c1fed';
+const String midtransServerKey = 'MIDTRANS_SERVER_KEY_IF_APPLICABLE';
 
 ```
-Buat Reservasi → Pembayaran → Dikonfirmasi → Dikirim → 
-Terpasang → Masa Sewa Aktif → Dijemput → Selesai
-```
 
-## Teknologi yang Digunakan
+## Akun Pengujian
 
-| Teknologi | Fungsi |
-|-----------|--------|
-| **Flutter** | Framework pengembangan aplikasi cross-platform |
-| **Dart** | Bahasa pemrograman utama |
-| **247Go Cloud Service** | Backend data service & penyimpanan file/gambar (console.247go.app) |
-| **Midtrans** | Payment gateway untuk transaksi pembayaran |
-| **Google Maps** | Integrasi layanan peta dan lokasi |
-| **Provider** | State management |
-| **PHP + MySQL** | Backend API dan database |
+Gunakan akun berikut untuk keperluan penilaian dan pengujian:
 
-## Panduan Instalasi
+- Admin
+  - Email: muhammadiqbal18303@gmail.com
+  - Password: iqbal123
+- User
+  - Email: aksa@gmail.com
+  - Password: aksa123
+- Konfirmasi bayar untuk midtrans
+  - https://simulator.sandbox.midtrans.com/
+  
 
-### Prasyarat
-- Flutter SDK versi 3.10.3 atau lebih tinggi
-- Dart SDK
-- Android Studio atau Visual Studio Code
-- Git
+## Panduan Singkat Menjalankan Aplikasi
 
-### Langkah Instalasi
+Prasyarat: Flutter SDK, Android SDK/Emulator, Git.
 
-1. **Clone Repository**
-   ```bash
-   git clone https://github.com/yourusername/quadraplay.git
-   cd quadraplay
-   ```
-
-2. **Install Dependencies**
-   ```bash
-   flutter pub get
-   ```
-
-3. **Konfigurasi Backend**
-   - Akses console.247go.app untuk konfigurasi data service
-   - Perbarui konfigurasi API endpoint pada file `config.dart`
-   - Pastikan file `google-services.json` tersedia di direktori `android/app/` untuk Firebase Storage
-
-4. **Menjalankan Aplikasi**
-   ```bash
-   flutter run
-   ```
-
-## Build APK
+Langkah cepat:
 
 ```bash
-# Build APK untuk release
+git clone <repository-url>
+cd quadraplay
+flutter pub get
+# Perbarui lib/config.dart sesuai nilai environment
+flutter run -d chrome --web-browser-flag="--disable-web-security"
+```
+
+Build release APK:
+
+```bash
 flutter build apk --release
-
-# Lokasi output file
-build/app/outputs/flutter-apk/app-release.apk
+# Output: build/app/outputs/flutter-apk/app-release.apk
 ```
 
-## Download APK
+## Kontak
 
-File APK dapat diunduh melalui halaman [Releases](../../releases/latest).
-
-## Struktur Project
-
-```
-quadraplay/
-├── lib/
-│   ├── assets/          # Asset aplikasi (ikon, gambar)
-│   ├── controllers/     # Controller untuk state management
-│   ├── models/          # Model data
-│   ├── pages/           # Halaman UI
-│   ├── services/        # Service untuk komunikasi API
-│   ├── config.dart      # Konfigurasi aplikasi
-│   ├── main.dart        # Entry point aplikasi
-│   └── restapi.dart     # Handler REST API
-├── backend/             # Backend PHP
-│   ├── config/          # Konfigurasi database
-│   ├── midtrans/        # Integrasi Midtrans
-│   ├── models/          # Model backend
-│   └── services/        # Service backend
-├── android/             # Kode native Android
-├── ios/                 # Kode native iOS
-└── web/                 # Dukungan web
-```
-
-## Skema Warna Aplikasi
-
-| Warna | Kode Hex | Penggunaan |
-|-------|----------|------------|
-| Primary | `#2563EB` | Warna utama aplikasi |
-| Secondary | `#7C3AED` | Warna aksen |
-| Background | `#F8FAFC` | Warna latar belakang |
-| Success | `#10B981` | Indikator status berhasil |
-| Error | `#EF4444` | Indikator status error |
-
-## Pengembang
-
-Aplikasi ini dikembangkan menggunakan Flutter Framework.
-
-## Lisensi
-
-Project ini dibuat untuk keperluan pembelajaran dan penggunaan pribadi.
+- Muhammad Iqbal — muhammadiqbal18303@gmail.com
 
 ---
-
-<p align="center">
-  <strong>Terima kasih telah menggunakan QuadraPlay</strong>
-</p>
